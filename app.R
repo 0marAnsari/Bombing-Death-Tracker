@@ -6,6 +6,13 @@
 #
 #    https://shiny.posit.co/
 #
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    https://shiny.posit.co/
+#
 library(rsconnect)
 library(tidyverse)
 library(ggplot2)
@@ -60,6 +67,20 @@ ui <- fluidPage(
           timeFormat = "%Y-%m-%d",
           animate = animationOptions(interval = 167, loop = TRUE)  # Animation settings
         )
+      ),
+      sliderInput(
+        "blur", 
+        "Heatmap Blur:",
+        min = 5,
+        max = 20,
+        value = 15
+      ),
+      sliderInput(
+        "radius", 
+        "Heatmap Radius:",
+        min = 5,
+        max = 20,
+        value = 15
       )
     ),
     mainPanel(
@@ -103,9 +124,9 @@ server <- function(input, output, session) {
         lat = ~latitude,
         lng = ~longitude,
         intensity = ~1,
-        blur = 20,
-        max = 0.05,
-        radius = 15
+        blur = input$blur,      # Dynamic blur value
+        radius = input$radius,  # Dynamic radius value
+        max = 0.05              # Adjust for density normalization
       )
   })
   
