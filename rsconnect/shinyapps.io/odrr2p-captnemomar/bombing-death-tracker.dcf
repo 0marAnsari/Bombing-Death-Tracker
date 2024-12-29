@@ -5,6 +5,6 @@ account: odrr2p-captnemomar
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 13647269
-bundleId: 9580614
+bundleId: 9580619
 url: https://odrr2p-captnemomar.shinyapps.io/bombing-death-tracker/
 version: 1

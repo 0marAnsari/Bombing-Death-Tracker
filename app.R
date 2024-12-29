@@ -70,7 +70,6 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  
   # Reactive filtered data for manual mode
   manual_data <- reactive({
     acled_data %>%
@@ -79,59 +78,52 @@ server <- function(input, output, session) {
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
   })
   
-  # Reactive filtered data for cumulative animation mode
+  # Reactive filtered data for animation mode
   animation_data <- reactive({
     acled_data %>%
-      filter(event_date >= as.Date("2023-10-01") & event_date <= input$animation_date) %>%
+      filter(event_date <= input$animation_date) %>%
       filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
   })
   
-  # Reactive fatalities for counters
-  cumulative_data <- reactive({
-    if (input$mode == FALSE) {  # Manual mode
-      manual_data() %>%
-        group_by(country) %>%
-        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
-    } else {  # Animation mode
-      animation_data() %>%
-        group_by(country) %>%
-        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
-    }
-  })
-  
-  # Reactive fatalities for Hamas and Hezbollah
-  group_fatalities <- reactive({
-    acled_data %>%
-      filter(event_date >= as.Date("2023-10-01") & event_date <= if (input$mode == FALSE) max(input$date_range) else input$animation_date) %>%
-      filter(actor1 %in% c("Hamas Movement", "Hezbollah")) %>%
-      group_by(actor1) %>%
-      summarize(total_fatalities = sum(fatalities, na.rm = TRUE)) %>%
-      tidyr::pivot_wider(names_from = actor1, values_from = total_fatalities, values_fill = 0)
-  })
-  
-  # Render leaflet map
+  # Render Leaflet map
   output$event_map <- renderLeaflet({
     leaflet() %>%
       setView(lng = 35.2137, lat = 31.7683, zoom = 8) %>%
       addProviderTiles("CartoDB.Positron")
   })
   
-  # Update heatmap based on selected mode
+  # Update heatmap with density and legend
   observe({
     filtered_data <- if (input$mode == FALSE) manual_data() else animation_data()
     
-    leafletProxy("event_map", data = filtered_data) %>%
-      clearHeatmap() %>%
-      addHeatmap(
+    # Calculate density
+    density_data <- filtered_data %>%
+      group_by(latitude, longitude) %>%
+      summarize(bombing_count = n())
+    
+    # Define a color palette
+    pal <- colorNumeric(palette = "YlOrRd", domain = density_data$bombing_count)
+    
+    leafletProxy("event_map", data = density_data) %>%
+      clearMarkers() %>%
+      addCircleMarkers(
         lat = ~latitude,
         lng = ~longitude,
-        intensity = ~1,
-        blur = 20,
-        max = 0.05,
-        radius = 15
+        radius = ~sqrt(bombing_count) * 2,  # Size proportional to density
+        color = ~pal(bombing_count),  # Color based on density
+        fillOpacity = 0.8,
+        popup = ~paste("Number of events:", bombing_count)
+      ) %>%
+      addLegend(
+        "bottomright",
+        pal = pal,
+        values = density_data$bombing_count,
+        title = "Number of Bombings",
+        opacity = 1
       )
   })
+}
   
   # Update fatality counters
   output$fatality_counters <- renderUI({
