@@ -25,6 +25,7 @@ library(bslib)
 library(leaflet.extras)
 library(ggplot2)
 library(shinyWidgets)
+library(tidyr)
 
 ui <- fluidPage(
   titlePanel("Dynamic Bombing Density Map for Israel, Palestine, Lebanon, and Syria (via ACLED)"),
@@ -70,6 +71,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  
   # Reactive filtered data for manual mode
   manual_data <- reactive({
     acled_data %>%
@@ -78,65 +80,68 @@ server <- function(input, output, session) {
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
   })
   
-  # Reactive filtered data for animation mode
+  # Reactive filtered data for cumulative animation mode
   animation_data <- reactive({
     acled_data %>%
-      filter(event_date <= input$animation_date) %>%
+      filter(event_date >= as.Date("2023-10-01") & event_date <= input$animation_date) %>%
       filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
   })
   
-  # Render Leaflet map
+  # Render leaflet map with updated legend
   output$event_map <- renderLeaflet({
     leaflet() %>%
       setView(lng = 35.2137, lat = 31.7683, zoom = 8) %>%
       addProviderTiles("CartoDB.Positron")
   })
   
-  # Update heatmap with density and legend
   observe({
     filtered_data <- if (input$mode == FALSE) manual_data() else animation_data()
     
-    # Calculate density
-    density_data <- filtered_data %>%
-      group_by(latitude, longitude) %>%
-      summarize(bombing_count = n())
+    # Calculate density ranges for legend dynamically
+    density_counts <- table(cut(
+      as.numeric(table(filtered_data$latitude)),  # Count points by latitudes
+      breaks = c(1, 10, 20, 40, 60, Inf),         # Define dynamic ranges
+      labels = c("1-10", "11-20", "21-40", "41-60", "61+")
+    ))
     
-    # Define a color palette
-    pal <- colorNumeric(palette = "YlOrRd", domain = density_data$bombing_count)
-    
-    leafletProxy("event_map", data = density_data) %>%
-      clearMarkers() %>%
-      addCircleMarkers(
+    leafletProxy("event_map", data = filtered_data) %>%
+      clearHeatmap() %>%
+      addHeatmap(
         lat = ~latitude,
         lng = ~longitude,
-        radius = ~sqrt(bombing_count) * 2,  # Size proportional to density
-        color = ~pal(bombing_count),  # Color based on density
-        fillOpacity = 0.8,
-        popup = ~paste("Number of events:", bombing_count)
+        intensity = ~1,
+        blur = 20,
+        max = 0.05,
+        radius = 15
       ) %>%
+      clearControls() %>%
       addLegend(
-        "bottomright",
-        pal = pal,
-        values = density_data$bombing_count,
-        title = "Number of Bombings",
-        opacity = 1
+        "topright",
+        colors = c("blue", "green", "yellow", "orange", "red"),
+        labels = names(density_counts),  # Dynamically update legend labels
+        title = "Event Density (Dynamic Scale)",
+        opacity = 0.7
       )
   })
-}
+  
   
   # Update fatality counters
   output$fatality_counters <- renderUI({
-    cumulative <- cumulative_data()
-    group_data <- group_fatalities()
+    cumulative <- if (input$mode == FALSE) {
+      manual_data() %>%
+        group_by(country) %>%
+        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
+    } else {
+      animation_data() %>%
+        group_by(country) %>%
+        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
+    }
     
     israel_fatalities <- if ("Israel" %in% cumulative$country) cumulative %>% filter(country == "Israel") %>% pull(cumulative_fatalities) else 0
     palestine_fatalities <- if ("Palestine" %in% cumulative$country) cumulative %>% filter(country == "Palestine") %>% pull(cumulative_fatalities) else 0
     syria_fatalities <- if ("Syria" %in% cumulative$country) cumulative %>% filter(country == "Syria") %>% pull(cumulative_fatalities) else 0
     lebanon_fatalities <- if ("Lebanon" %in% cumulative$country) cumulative %>% filter(country == "Lebanon") %>% pull(cumulative_fatalities) else 0
-    
-    hamas_fatalities <- if ("Hamas Movement" %in% colnames(group_data)) group_data$`Hamas Movement` else 0
-    hezbollah_fatalities <- if ("Hezbollah" %in% colnames(group_data)) group_data$`Hezbollah` else 0
     
     tags$div(
       style = "text-align: center; margin-top: 20px;",
@@ -144,15 +149,10 @@ server <- function(input, output, session) {
       tags$div(style = "font-size: 18px; color: #333;", paste("Israel: ", israel_fatalities)),
       tags$div(style = "font-size: 18px; color: #333;", paste("Palestine: ", palestine_fatalities)),
       tags$div(style = "font-size: 18px; color: #333;", paste("Syria: ", syria_fatalities)),
-      tags$div(style = "font-size: 18px; color: #333;", paste("Lebanon: ", lebanon_fatalities)),
-      tags$hr(),
-      tags$div(style = "font-size: 20px; font-weight: bold; color: #333;", "Fatalities Caused by Specific Groups:"),
-      tags$div(style = "font-size: 18px; color: #333;", paste("Hamas Movement: ", hamas_fatalities)),
-      tags$div(style = "font-size: 18px; color: #333;", paste("Hezbollah: ", hezbollah_fatalities))
+      tags$div(style = "font-size: 18px; color: #333;", paste("Lebanon: ", lebanon_fatalities))
     )
   })
 }
-
 
 shinyApp(ui = ui, server = server)
 
