@@ -5,3 +5,5 @@ This is the first iteration of a personal project, I aim for a more ambitious tr
 This is to build R-coding skills, shiny expertise, and further understandings of global conflict and the true human toll of warfare.
 
 The database will be updated as soon as ACLED updates the API.
+
+Please send any inquiries to oansari@uchicago.edu
