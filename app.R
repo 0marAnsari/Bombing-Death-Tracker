@@ -9,10 +9,15 @@
 library(rsconnect)
 library(tidyverse)
 library(ggplot2)
+library(dplyr)
+
+# Load your ACLED data
+acled_data <- read.csv("acled_2023_2024_data.csv")
+acled_data$event_date <- as.Date(acled_data$event_date)
+
 
 library(shiny)
 library(leaflet)
-library(dplyr)
 library(lubridate)
 library(sf)
 library(fastmap)
@@ -20,10 +25,6 @@ library(bslib)
 library(leaflet.extras)
 library(ggplot2)
 library(shinyWidgets)
-
-# Load your ACLED data
-acled_data <- read.csv("acled_2023_2024_data.csv")
-acled_data$event_date <- as.Date(acled_data$event_date)
 
 ui <- fluidPage(
   titlePanel("Dynamic Event Density Map for Israel, Palestine, Lebanon, and Syria"),
@@ -78,31 +79,12 @@ server <- function(input, output, session) {
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
   })
   
-  # Reactive filtered data for animation mode
+  # Reactive filtered data for cumulative animation mode
   animation_data <- reactive({
     acled_data %>%
-      filter(event_date == input$animation_date) %>%
+      filter(event_date >= as.Date("2023-10-01") & event_date <= input$animation_date) %>%  # Include all bombings up to the current animation date
       filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
-  })
-  
-  # Reactive fatalities for counters
-  cumulative_data <- reactive({
-    if (input$mode == FALSE) {  # Manual mode
-      acled_data %>%
-        filter(event_date >= input$date_range[1] & event_date <= input$date_range[2]) %>%
-        filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
-        filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon")) %>%
-        group_by(country) %>%
-        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
-    } else {  # Animation mode
-      acled_data %>%
-        filter(event_date <= input$animation_date) %>%
-        filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
-        filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon")) %>%
-        group_by(country) %>%
-        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
-    }
   })
   
   # Render leaflet map
@@ -114,6 +96,7 @@ server <- function(input, output, session) {
   
   # Update heatmap based on selected mode
   observe({
+    # Use cumulative data for animation mode or manual data otherwise
     filtered_data <- if (input$mode == FALSE) manual_data() else animation_data()
     
     leafletProxy("event_map", data = filtered_data) %>%
@@ -149,3 +132,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
+
