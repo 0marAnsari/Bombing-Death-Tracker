@@ -27,7 +27,7 @@ library(ggplot2)
 library(shinyWidgets)
 
 ui <- fluidPage(
-  titlePanel("Dynamic Event Density Map for Israel, Palestine, Lebanon, and Syria"),
+  titlePanel("Dynamic Bombing Density Map for Israel, Palestine, Lebanon, and Syria"),
   sidebarLayout(
     sidebarPanel(
       switchInput(
@@ -82,9 +82,22 @@ server <- function(input, output, session) {
   # Reactive filtered data for cumulative animation mode
   animation_data <- reactive({
     acled_data %>%
-      filter(event_date >= as.Date("2023-10-01") & event_date <= input$animation_date) %>%  # Include all bombings up to the current animation date
+      filter(event_date >= as.Date("2023-10-01") & event_date <= input$animation_date) %>%
       filter(event_type == "Explosions/Remote violence" & actor1 == "Military Forces of Israel (2022-)") %>%
       filter(country %in% c("Israel", "Palestine", "Syria", "Lebanon"))
+  })
+  
+  # Reactive fatalities for counters
+  cumulative_data <- reactive({
+    if (input$mode == FALSE) {  # Manual mode
+      manual_data() %>%
+        group_by(country) %>%
+        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
+    } else {  # Animation mode
+      animation_data() %>%
+        group_by(country) %>%
+        summarize(cumulative_fatalities = sum(fatalities, na.rm = TRUE))
+    }
   })
   
   # Render leaflet map
@@ -96,7 +109,6 @@ server <- function(input, output, session) {
   
   # Update heatmap based on selected mode
   observe({
-    # Use cumulative data for animation mode or manual data otherwise
     filtered_data <- if (input$mode == FALSE) manual_data() else animation_data()
     
     leafletProxy("event_map", data = filtered_data) %>%
