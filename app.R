@@ -27,7 +27,7 @@ library(ggplot2)
 library(shinyWidgets)
 
 ui <- fluidPage(
-  titlePanel("Dynamic Bombing Density Map for Israel, Palestine, Lebanon, and Syria"),
+  titlePanel("Dynamic Bombing Density Map for Israel, Palestine, Lebanon, and Syria (via ACLED)"),
   sidebarLayout(
     sidebarPanel(
       switchInput(
