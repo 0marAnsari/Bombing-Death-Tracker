@@ -6,22 +6,6 @@
 #
 #    https://shiny.posit.co/
 #
-install.packages("rsconnect")
-install.packages("tidyverse")
-install.packages("ggplot2")
-install.packages("httr")
-install.packages("jsonlite")
-install.packages("dplyr")
-install.packages("shiny")       # For creating interactive web applications
-install.packages("leaflet")     # For creating interactive maps
-install.packages("dplyr")       # For data manipulation
-install.packages("lubridate")   # For handling dates
-install.packages("sf")          # For spatial data manipulation
-install.packages("fastmap")
-install.packages("bslib")
-install.packages("leaflet.extras")
-install.packages("ggplot2")
-install.packages("shinyWidgets")
 
 library(leaflet.extras)
 library(ggplot2)
