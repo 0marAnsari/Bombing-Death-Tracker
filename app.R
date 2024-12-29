@@ -100,6 +100,16 @@ server <- function(input, output, session) {
     }
   })
   
+  # Reactive fatalities for Hamas and Hezbollah
+  group_fatalities <- reactive({
+    acled_data %>%
+      filter(event_date >= as.Date("2023-10-01") & event_date <= if (input$mode == FALSE) max(input$date_range) else input$animation_date) %>%
+      filter(actor1 %in% c("Hamas Movement", "Hezbollah")) %>%
+      group_by(actor1) %>%
+      summarize(total_fatalities = sum(fatalities, na.rm = TRUE)) %>%
+      tidyr::pivot_wider(names_from = actor1, values_from = total_fatalities, values_fill = 0)
+  })
+  
   # Render leaflet map
   output$event_map <- renderLeaflet({
     leaflet() %>%
@@ -126,11 +136,15 @@ server <- function(input, output, session) {
   # Update fatality counters
   output$fatality_counters <- renderUI({
     cumulative <- cumulative_data()
+    group_data <- group_fatalities()
     
     israel_fatalities <- if ("Israel" %in% cumulative$country) cumulative %>% filter(country == "Israel") %>% pull(cumulative_fatalities) else 0
     palestine_fatalities <- if ("Palestine" %in% cumulative$country) cumulative %>% filter(country == "Palestine") %>% pull(cumulative_fatalities) else 0
     syria_fatalities <- if ("Syria" %in% cumulative$country) cumulative %>% filter(country == "Syria") %>% pull(cumulative_fatalities) else 0
     lebanon_fatalities <- if ("Lebanon" %in% cumulative$country) cumulative %>% filter(country == "Lebanon") %>% pull(cumulative_fatalities) else 0
+    
+    hamas_fatalities <- if ("Hamas Movement" %in% colnames(group_data)) group_data$`Hamas Movement` else 0
+    hezbollah_fatalities <- if ("Hezbollah" %in% colnames(group_data)) group_data$`Hezbollah` else 0
     
     tags$div(
       style = "text-align: center; margin-top: 20px;",
@@ -138,10 +152,15 @@ server <- function(input, output, session) {
       tags$div(style = "font-size: 18px; color: #333;", paste("Israel: ", israel_fatalities)),
       tags$div(style = "font-size: 18px; color: #333;", paste("Palestine: ", palestine_fatalities)),
       tags$div(style = "font-size: 18px; color: #333;", paste("Syria: ", syria_fatalities)),
-      tags$div(style = "font-size: 18px; color: #333;", paste("Lebanon: ", lebanon_fatalities))
+      tags$div(style = "font-size: 18px; color: #333;", paste("Lebanon: ", lebanon_fatalities)),
+      tags$hr(),
+      tags$div(style = "font-size: 20px; font-weight: bold; color: #333;", "Fatalities Caused by Specific Groups:"),
+      tags$div(style = "font-size: 18px; color: #333;", paste("Hamas Movement: ", hamas_fatalities)),
+      tags$div(style = "font-size: 18px; color: #333;", paste("Hezbollah: ", hezbollah_fatalities))
     )
   })
 }
+
 
 shinyApp(ui = ui, server = server)
 
