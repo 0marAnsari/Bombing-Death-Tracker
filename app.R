@@ -6,16 +6,6 @@
 #
 #    https://shiny.posit.co/
 #
-library(leaflet.extras)
-library(ggplot2)
-library(shinyWidgets)
-library(shiny)
-library(leaflet)
-library(dplyr)
-library(lubridate)
-library(sf)
-library(fastmap)
-library(bslib)
 library(rsconnect)
 library(tidyverse)
 library(ggplot2)
@@ -23,6 +13,75 @@ library(httr)  # For handling API requests
 library(jsonlite) # For handling the response of the API
 library(dplyr) # For handling data
 
+# Base URL
+base_url <- "https://api.acleddata.com/acled/read"
+
+# Set up the list of parameters
+params <- list(
+  email = "oansari@uchicago.edu",
+  key = "IbF5sT9lJbY-7eqg7LFf",  # Replace with your actual API key
+  country = "Israel|Palestine|Syria|Lebanon", 
+  fields = "event_date|year|latitude|longitude|event_type|sub_event_type|country|fatalities|actor1|actor2",
+  limit = 5000,  # Maximum records per page
+  page = 1       # Starting page
+)
+
+# Initialize an empty list to store all records
+all_data <- list()
+
+# Paginated request loop for 2023 and 2024
+for (yr in c(2023, 2024)) {
+  cat("Fetching data for year", yr, "...\n")
+  params$year <- yr  # Add the year filter to the parameters
+  params$page <- 1   # Reset the page to 1 for each year
+  
+  repeat {
+    cat("Fetching page", params$page, "for year", yr, "...\n")
+    
+    # Make the API request
+    response <- GET(url = base_url, query = params)
+    
+    # Check response status
+    if (status_code(response) != 200) {
+      stop("API request failed with status:", status_code(response))
+    }
+    
+    # Parse the JSON response
+    response_json <- jsonlite::fromJSON(content(response, "text"), simplifyVector = TRUE)
+    
+    # Append data to the list
+    if (!is.null(response_json$data) && length(response_json$data) > 0) {
+      # Convert to a DataFrame and add the year column
+      df <- as.data.frame(response_json$data)
+      df$year <- yr
+      all_data <- append(all_data, list(df))
+      params$page <- params$page + 1  # Increment the page number
+    } else {
+      cat("No more data available for year", yr, ".\n")
+      break  # Exit loop if no more data
+    }
+  }
+}
+
+# Combine all pages into a single data frame
+final_data <- bind_rows(all_data)
+
+# Save the data to a CSV file
+write.csv(final_data, "acled_2023_2024_data.csv", row.names = FALSE)
+cat("Data saved to 'acled_2023_2024_data.csv'.\n")
+
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(lubridate)
+library(sf)
+library(fastmap)
+library(bslib)
+library(leaflet.extras)
+library(ggplot2)
+library(shinyWidgets)
+
+# Load your ACLED data
 acled_data <- read.csv("acled_2023_2024_data.csv")
 acled_data$event_date <- as.Date(acled_data$event_date)
 
