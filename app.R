@@ -27,15 +27,28 @@ library(ggplot2)
 library(shinyWidgets)
 
 ui <- fluidPage(
-  titlePanel("Dynamic Bombing Density Map for Israel, Palestine, Lebanon, and Syria (via ACLED)"),
+  # Dynamic theming with bslib
+  theme = bslib::bs_theme(),
+  
+  # App title and theme toggle
+  titlePanel("Dynamic Event Density Map for Israel, Palestine, Lebanon, and Syria"),
   sidebarLayout(
     sidebarPanel(
+      # Light/Dark mode switch
+      switchInput(
+        "dark_mode",
+        label = "Dark Mode",
+        onLabel = "On",
+        offLabel = "Off",
+        value = FALSE,  # Default to light mode
+        inline = TRUE
+      ),
       switchInput(
         "mode",
         label = "Mode",
         onLabel = "Animate",
         offLabel = "Manual",
-        value = TRUE,  # Default to animation
+        value = TRUE,  # Default to animation mode
         inline = TRUE
       ),
       conditionalPanel(
