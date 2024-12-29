@@ -35,7 +35,7 @@ ui <- fluidPage(
         label = "Mode",
         onLabel = "Animate",
         offLabel = "Manual",
-        value = FALSE,  # Default to manual
+        value = TRUE,  # Default to animation
         inline = TRUE
       ),
       conditionalPanel(
